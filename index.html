@@ -1,333 +1,3 @@
-import cv2
-import numpy as np
-import face_recognition
-import os
-from datetime import datetime
-import pandas as pd
-import threading
-from flask import Flask, render_template, Response, request, jsonify, send_from_directory
-import base64
-import time
-
-app = Flask(__name__, static_folder='static')
-
-# Function to find encodings for known faces
-def findEncodings(images):
-    encodeList = []
-    for img in images:
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        try:
-            encode = face_recognition.face_encodings(img)[0]
-            encodeList.append(encode)
-        except IndexError:
-            print(f"No face found in one of the images. Skipping...")
-    return encodeList
-
-# Function to mark attendance in CSV file
-def markAttendance(name):
-    now = datetime.now()
-    dateString = now.strftime('%Y-%m-%d')
-    timeString = now.strftime('%H:%M:%S')
-    
-    # Create attendance file if it doesn't exist
-    filename = f'Attendance_{dateString}.csv'
-    if not os.path.isfile(filename):
-        df = pd.DataFrame(columns=['Name', 'Time', 'Date'])
-        df.to_csv(filename, index=False)
-    
-    # Read existing attendance
-    df = pd.read_csv(filename)
-    
-    # Check if person is already marked for today
-    if not df['Name'].str.contains(name).any():
-        new_row = {'Name': name, 'Time': timeString, 'Date': dateString}
-        df = df._append(new_row, ignore_index=True)
-        df.to_csv(filename, index=False)
-        return f"{name} - Marked"
-    else:
-        return f"{name} - Already Marked"
-
-# Global variables for thread-safe operation
-frame_lock = threading.Lock()
-current_frame = None
-recognition_events = []
-classNames = []
-encodeListKnown = []
-
-# Load initial images and encodings
-def initialize_face_recognition():
-    global classNames, encodeListKnown
-    
-    # Path to your images folder
-    path = 'ImagesAttendance'
-    
-    # Create directory if it doesn't exist
-    if not os.path.exists(path):
-        os.makedirs(path)
-        print(f"Created directory: {path}")
-        return [], []  # Return empty lists since there are no images yet
-    
-    images = []
-    classNames = []
-    myList = os.listdir(path)
-    
-    if not myList:
-        print("No images found in the ImagesAttendance directory")
-        return [], []
-    
-    # Load all images and names
-    for cl in myList:
-        if cl.lower().endswith(('.png', '.jpg', '.jpeg')):
-            curImg = cv2.imread(f'{path}/{cl}')
-            if curImg is not None:
-                images.append(curImg)
-                classNames.append(os.path.splitext(cl)[0])  # Remove file extension
-            else:
-                print(f"Could not read image: {cl}")
-    
-    print('Encoding Images...')
-    encodeListKnown = findEncodings(images)
-    print('Encoding Complete')
-    
-    return classNames, encodeListKnown
-
-# Initialize face recognition
-classNames, encodeListKnown = initialize_face_recognition()
-
-# Function to generate frames for streaming
-def generate_frames():
-    global current_frame
-    
-    while True:
-        with frame_lock:
-            if current_frame is not None:
-                ret, buffer = cv2.imencode('.jpg', current_frame)
-                frame = buffer.tobytes()
-                yield (b'--frame\r\n'
-                      b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-        time.sleep(0.03)  # Limit to roughly 30 FPS
-
-# Function to count students registered
-def count_students():
-    path = 'ImagesAttendance'
-    if not os.path.exists(path):
-        return 0
-    
-    return len([f for f in os.listdir(path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
-
-# Function to count students present today
-def count_present_today():
-    now = datetime.now()
-    dateString = now.strftime('%Y-%m-%d')
-    filename = f'Attendance_{dateString}.csv'
-    
-    if not os.path.isfile(filename):
-        return 0
-    
-    df = pd.read_csv(filename)
-    return len(df)
-
-# Routes for the web application
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/static/<path:path>')
-def serve_static(path):
-    return send_from_directory('static', path)
-
-@app.route('/video_feed')
-def video_feed():
-    return Response(generate_frames(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route('/api/events')
-def get_events():
-    global recognition_events
-    return jsonify(recognition_events[-10:])
-
-@app.route('/api/stats')
-def get_stats():
-    total_students = count_students()
-    present_today = count_present_today()
-    now = datetime.now()
-    
-    return jsonify({
-        'totalStudents': total_students,
-        'presentToday': present_today,
-        'date': now.strftime('%Y-%m-%d'),
-        'time': now.strftime('%H:%M:%S')
-    })
-
-@app.route('/api/attendance')
-def get_attendance():
-    now = datetime.now()
-    dateString = now.strftime('%Y-%m-%d')
-    filename = f'Attendance_{dateString}.csv'
-    
-    if os.path.isfile(filename):
-        df = pd.read_csv(filename)
-        attendance_data = []
-        
-        for _, row in df.iterrows():
-            attendance_data.append({
-                'name': row['Name'],
-                'time': row['Time'],
-                'status': 'Present'
-            })
-            
-        return jsonify(attendance_data)
-    else:
-        return jsonify([])
-
-@app.route('/register', methods=['POST'])
-def register_student():
-    global classNames, encodeListKnown
-    
-    if 'photo' not in request.files:
-        return jsonify({'success': False, 'message': 'No photo uploaded'})
-        
-    file = request.files['photo']
-    name = request.form.get('name')
-    
-    if not name:
-        return jsonify({'success': False, 'message': 'No name provided'})
-    
-    if file.filename == '':
-        return jsonify({'success': False, 'message': 'No photo selected'})
-        
-    # Ensure directory exists
-    path = 'ImagesAttendance'
-    if not os.path.exists(path):
-        os.makedirs(path)
-    
-    # Save the image to ImagesAttendance folder
-    filepath = os.path.join(path, f'{name}.jpg')
-    file.save(filepath)
-    
-    # Load the new image and add to encodings
-    new_img = cv2.imread(filepath)
-    if new_img is not None:
-        new_img = cv2.cvtColor(new_img, cv2.COLOR_BGR2RGB)
-        try:
-            new_encode = face_recognition.face_encodings(new_img)[0]
-            
-            with frame_lock:  # Lock to safely modify shared resources
-                encodeListKnown.append(new_encode)
-                classNames.append(name)
-                
-            return jsonify({'success': True, 'message': 'Student registered successfully'})
-        except IndexError:
-            # Remove the file if no face is detected
-            os.remove(filepath)
-            return jsonify({'success': False, 'message': 'No face detected in the uploaded image'})
-    else:
-        return jsonify({'success': False, 'message': 'Failed to process the uploaded image'})
-
-# Face recognition thread
-def face_recognition_thread():
-    global current_frame, recognition_events, classNames, encodeListKnown
-    
-    # Start webcam
-    cap = cv2.VideoCapture(0)
-    
-    if not cap.isOpened():
-        print("Error: Could not open webcam")
-        return
-    
-    print("Starting face recognition thread")
-    
-    while True:
-        success, img = cap.read()
-        if not success:
-            print("Failed to get frame from webcam")
-            time.sleep(1)  # Wait before retrying
-            cap = cv2.VideoCapture(0)  # Try to reconnect
-            continue
-        
-        # Make a copy of the image for processing
-        imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)  # Resize for faster processing
-        imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
-        
-        # Check if there are any encodings
-        if len(encodeListKnown) == 0:
-            # Just display the frame with a message if no faces are registered
-            cv2.putText(img, "No faces registered", (10, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2)
-            with frame_lock:
-                current_frame = img
-            time.sleep(0.03)
-            continue
-        
-        # Find all faces in current frame
-        facesCurFrame = face_recognition.face_locations(imgS)
-        encodesCurFrame = face_recognition.face_encodings(imgS, facesCurFrame)
-        
-        # Check each face against known encodings
-        for encodeFace, faceLoc in zip(encodesCurFrame, facesCurFrame):
-            with frame_lock:  # Lock when accessing shared resources
-                local_encodeListKnown = encodeListKnown.copy()
-                local_classNames = classNames.copy()
-            
-            matches = face_recognition.compare_faces(local_encodeListKnown, encodeFace)
-            faceDis = face_recognition.face_distance(local_encodeListKnown, encodeFace)
-            
-            if len(faceDis) > 0:  # Check if the list is not empty
-                matchIndex = np.argmin(faceDis)
-                
-                # If match found, mark attendance
-                if matches[matchIndex]:
-                    name = local_classNames[matchIndex].upper()
-                    attendance_status = markAttendance(name)
-                    
-                    # Add to recognition events
-                    now = datetime.now()
-                    event = {
-                        'name': name,
-                        'status': 'Marked' if 'Marked' in attendance_status else 'Already Marked',
-                        'time': now.strftime('%H:%M:%S')
-                    }
-                    recognition_events.insert(0, event)
-                    if len(recognition_events) > 20:
-                        recognition_events.pop()
-                    
-                    # Draw rectangle and name
-                    y1, x2, y2, x1 = faceLoc
-                    # Scale back up face locations since we scaled down the image
-                    y1, x2, y2, x1 = y1*4, x2*4, y2*4, x1*4
-                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.rectangle(img, (x1, y2-35), (x2, y2), (0, 255, 0), cv2.FILLED)
-                    cv2.putText(img, attendance_status, (x1+6, y2-6), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 255, 255), 1)
-                else:
-                    # Unknown face
-                    y1, x2, y2, x1 = faceLoc
-                    y1, x2, y2, x1 = y1*4, x2*4, y2*4, x1*4
-                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                    cv2.rectangle(img, (x1, y2-35), (x2, y2), (0, 0, 255), cv2.FILLED)
-                    cv2.putText(img, "Unknown", (x1+6, y2-6), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 255, 255), 1)
-        
-        # Update the current frame
-        with frame_lock:
-            current_frame = img
-        
-        # Sleep to reduce CPU usage
-        time.sleep(0.03)
-    
-    cap.release()
-
-@app.route('/templates/<path:path>')
-def serve_template(path):
-    return send_from_directory('templates', path)
-
-# Create the templates directory and save the HTML
-def setup_templates():
-    templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
-    if not os.path.exists(templates_dir):
-        os.makedirs(templates_dir)
-    
-    # Save the HTML to templates/index.html
-    # You'll need to add the content of the HTML file here
-    with open(os.path.join(templates_dir, 'index.html'), 'w') as f:
-        f.write("""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -918,7 +588,7 @@ def setup_templates():
                 </div>
                 <div class="card-body">
                     <div class="camera-container">
-                        <img id="camera-feed" alt="Camera feed" src="/video_feed">
+                        <img id="camera-feed" alt="Camera feed" src="">
                     </div>
                     <div class="recent-recognitions">
                         <h4>Recent Recognitions</h4>
@@ -1083,22 +753,26 @@ def setup_templates():
             }
             
             try {
-                // Send data to backend
-                const response = await fetch('/register', {
-                   method: 'POST',
-                   body: formData
-                });
+                // Send data to backend (adjust URL as needed)
+                // const response = await fetch('/register', {
+                //    method: 'POST',
+                //    body: formData
+                // });
                 
-                const result = await response.json();
+                // const result = await response.json();
                 
-                if (result.success) {
-                   alert('Student registered successfully!');
-                   registrationForm.reset();
-                   previewContainer.style.display = 'none';
-                   updateStats(); // Update the stats after successful registration
-                } else {
-                   alert('Registration failed: ' + result.message);
-                }
+                // if (response.ok) {
+                //    alert('Student registered successfully!');
+                //    registrationForm.reset();
+                //    previewContainer.style.display = 'none';
+                // } else {
+                //    alert('Registration failed: ' + result.message);
+                // }
+
+                // For demo purposes:
+                alert(`Student ${name} registered successfully!`);
+                registrationForm.reset();
+                previewContainer.style.display = 'none';
                 
             } catch (error) {
                 console.error('Error submitting form:', error);
@@ -1106,28 +780,25 @@ def setup_templates():
             }
         });
 
-        // Handle connection to Python backend
+        // Handle connection to Python backend for video stream
+        const cameraFeed = document.getElementById('camera-feed');
         const connectionIndicator = document.getElementById('connection-indicator');
         const connectionText = document.getElementById('connection-text');
         const recognitionLog = document.getElementById('recognition-log');
         
         // Function to add recognition events to the log
-        function addRecognitionEvent(name, status, time) {
+        function addRecognitionEvent(name, status) {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
             const statusClass = status.includes('Already') ? 'status-pending' : 'status-success';
             
             const entry = document.createElement('div');
             entry.className = 'recognition-entry';
             entry.innerHTML = `
-                <span class="recognition-time">${time}</span>
+                <span class="recognition-time">${timeString}</span>
                 <span class="status-indicator ${statusClass}"></span>
                 <span>${name}: ${status}</span>
             `;
-            
-            // Clear initial "waiting" message if it exists
-            if (recognitionLog.children.length === 1 && 
-                recognitionLog.children[0].textContent.includes('Waiting')) {
-                recognitionLog.innerHTML = '';
-            }
             
             recognitionLog.insertBefore(entry, recognitionLog.firstChild);
             
@@ -1137,128 +808,120 @@ def setup_templates():
             }
         }
 
-        // Function to fetch and update recognition events
-        async function fetchEvents() {
-            try {
-                const response = await fetch('/api/events');
-                const events = await response.json();
-                
-                // Clear current log if we have events
-                if (events.length > 0) {
-                    recognitionLog.innerHTML = '';
-                    
-                    // Add events to log in reverse order (newest first)
-                    events.forEach(event => {
-                        addRecognitionEvent(event.name, event.status, event.time);
-                    });
-                }
-            } catch (error) {
-                console.error('Error fetching events:', error);
-                // If there's an error, update connection status
-                connectionIndicator.className = 'connection-indicator disconnected';
-                connectionText.textContent = 'Disconnected';
-            }
-        }
-        
-        // Function to fetch and update attendance data
-        async function fetchAttendanceData() {
-            try {
-                const response = await fetch('/api/attendance');
-                const attendanceData = await response.json();
-                
-                const attendanceList = document.getElementById('attendance-list');
-                
-                // Clear existing content
-                attendanceList.innerHTML = '';
-                
-                if (attendanceData.length === 0) {
-                    attendanceList.innerHTML = '<div class="recognition-entry">No attendance records yet for today.</div>';
-                    return;
-                }
-                
-                // Add attendance entries
-                attendanceData.forEach(student => {
-                    const item = document.createElement('div');
-                    item.className = 'attendance-item';
-                    
-                    const initials = student.name.split(' ').map(n => n[0]).join('');
-                    
-                    item.innerHTML = `
-                        <div class="attendance-avatar">
-                            ${initials}
-                        </div>
-                        <div class="attendance-details">
-                            <div class="attendance-name">${student.name}</div>
-                            <div class="attendance-time">${student.time}</div>
-                        </div>
-                        <div class="attendance-status">${student.status}</div>
-                    `;
-                    
-                    attendanceList.appendChild(item);
-                });
-            } catch (error) {
-                console.error('Error fetching attendance data:', error);
-            }
-        }
-        
-        // Function to update stats
-        async function updateStats() {
-            try {
-                const response = await fetch('/api/stats');
-                const stats = await response.json();
-                
-                document.getElementById('total-students').textContent = stats.totalStudents;
-                document.getElementById('present-today').textContent = stats.presentToday;
-                document.getElementById('current-date').textContent = new Date(stats.date).toLocaleDateString('en-US', { 
-                    year: 'numeric', month: 'short', day: 'numeric' 
-                });
-                document.getElementById('current-time').textContent = stats.time;
-                
-                // Update connection status
-                connectionIndicator.className = 'connection-indicator connected';
-                connectionText.textContent = 'Connected';
-            } catch (error) {
-                console.error('Error updating stats:', error);
-                connectionIndicator.className = 'connection-indicator disconnected';
-                connectionText.textContent = 'Disconnected';
-            }
-        }
-        
-        // Check connection and update data periodically
-        function checkConnection() {
-            // Set initial state
+        // Mock function to simulate connection with Python backend
+        // In a real implementation, this would connect to your Python backend
+        function connectToBackend() {
+            // Update status to connecting
             connectionIndicator.className = 'connection-indicator connecting';
             connectionText.textContent = 'Connecting...';
             
-            // Update stats, events, and attendance data
-            updateStats();
-            fetchEvents();
-            fetchAttendanceData();
+            // For demonstration purposes:
+            // This simulates a connection and receiving recognition events
+            setTimeout(() => {
+                // Update status to connected
+                connectionIndicator.className = 'connection-indicator connected';
+                connectionText.textContent = 'Connected';
+                
+                // In a real implementation, you would:
+                // 1. Make camera-feed display the video stream from your Python backend
+                // 2. Setup WebSocket or other communication to receive recognition events
+                
+                // For demo only - Display a placeholder image
+                cameraFeed.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQ4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZWVlIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgZmlsbD0iIzU1NSI+QXR0ZW5kYW5jZSBTeXN0ZW0gQ2FtZXJhIEZlZWQ8L3RleHQ+PC9zdmc+';
+                
+                // Simulate recognition events
+                simulateRecognitionEvents();
+                
+                // Fetch some attendance data
+                fetchAttendanceData();
+            }, 2000);
         }
         
-        // Initialize everything when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            checkConnection();
+        // Function to simulate recognition events for demo purposes
+        function simulateRecognitionEvents() {
+            const names = ['John Smith', 'Emma Johnson', 'Michael Brown', 'Olivia Davis'];
+            const statuses = ['Marked', 'Already Marked'];
             
-            // Set up periodic updates
-            setInterval(updateStats, 10000); // Every 10 seconds
-            setInterval(fetchEvents, 5000); // Every 5 seconds
-            setInterval(fetchAttendanceData, 15000); // Every 15 seconds
+            // Clear initial message
+            recognitionLog.innerHTML = '';
+            
+            // Add some initial events
+            addRecognitionEvent('John Smith', 'Marked');
+            addRecognitionEvent('Emma Johnson', 'Marked');
+            
+            // Periodically add new events
+            setInterval(() => {
+                const randomName = names[Math.floor(Math.random() * names.length)];
+                const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+                addRecognitionEvent(randomName, randomStatus);
+                
+                // Update stats
+                updateAttendanceStats();
+            }, 8000);
+        }
+        
+        // Update attendance stats
+        function updateAttendanceStats() {
+            // Get all unique names from recognition log
+            const entries = document.querySelectorAll('.recognition-entry');
+            const presentNames = new Set();
+            
+            entries.forEach(entry => {
+                const text = entry.textContent.trim();
+                const match = text.match(/([^:]+):/);
+                if (match && match[1]) {
+                    const name = match[1].trim().replace(/^\d+:\d+:\d+\s+/, '');
+                    presentNames.add(name);
+                }
+            });
+            
+            // Update stats
+            document.getElementById('present-today').textContent = presentNames.size;
+            document.getElementById('total-students').textContent = Math.max(10, presentNames.size); // Assume at least 10 total students
+        }
+        
+        // Function to fetch and populate attendance data
+        function fetchAttendanceData() {
+            const attendanceList = document.getElementById('attendance-list');
+            
+            // In a real implementation, you would fetch data from your Python backend
+            // For demo, we'll use simulated data
+            const attendanceData = [
+                { name: 'John Smith', time: '08:30 AM', status: 'Present' },
+                { name: 'Emma Johnson', time: '08:45 AM', status: 'Present' },
+                { name: 'Michael Brown', time: '09:00 AM', status: 'Present' },
+                { name: 'Olivia Davis', time: '09:15 AM', status: 'Present' }
+            ];
+            
+            // Clear existing content
+            attendanceList.innerHTML = '';
+            
+            // Add attendance entries
+            attendanceData.forEach(student => {
+                const item = document.createElement('div');
+                item.className = 'attendance-item';
+                
+                const initials = student.name.split(' ').map(n => n[0]).join('');
+                
+                item.innerHTML = `
+                    <div class="attendance-avatar">
+                        ${initials}
+                    </div>
+                    <div class="attendance-details">
+                        <div class="attendance-name">${student.name}</div>
+                        <div class="attendance-time">${student.time}</div>
+                    </div>
+                    <div class="attendance-status">${student.status}</div>
+                `;
+                
+                attendanceList.appendChild(item);
+            });
+        }
+        
+        // Connect to backend when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            connectToBackend();
         });
     </script>
 </body>
 </html>
-        """)
-
-if __name__ == '__main__':
-    # Setup templates directory and save HTML
-    setup_templates()
-    
-    # Start face recognition in a background thread
-    thread = threading.Thread(target=face_recognition_thread)
-    thread.daemon = True
-    thread.start()
-    
-    print("Starting Flask server...")
-    # Start Flask server
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

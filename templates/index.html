@@ -142,7 +142,7 @@
             justify-content: center;
         }
 
-        #camera-feed {
+        #camera-feed, #registration-camera-feed {
             width: 100%;
             height: 100%;
             object-fit: contain;
@@ -348,7 +348,8 @@
         }
 
         input[type="text"],
-        input[type="email"] {
+        input[type="email"],
+        input[type="date"] {
             width: 100%;
             padding: 12px 15px;
             border: 1px solid #ced4da;
@@ -358,7 +359,8 @@
         }
 
         input[type="text"]:focus,
-        input[type="email"]:focus {
+        input[type="email"]:focus,
+        input[type="date"]:focus {
             border-color: var(--primary);
             outline: none;
         }
@@ -444,6 +446,56 @@
             background-color: #f59e0b;
         }
 
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            margin-left: 10px;
+        }
+        
+        .toggle-switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+        
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--primary);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
         @media (max-width: 768px) {
             .tabs {
                 overflow-x: auto;
@@ -491,6 +543,97 @@
             animation: pulse 1.5s infinite;
         }
 
+        /* New styles for report section */
+        .report-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .date-range {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .report-table th, .report-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .report-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .report-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .attendance-percentage {
+            background-color: #e2f3ff;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .high {
+            background-color: #dcfce7;
+            color: #16a34a;
+        }
+
+        .medium {
+            background-color: #fef9c3;
+            color: #ca8a04;
+        }
+
+        .low {
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+
+        .date-picker-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .tabs-content-container {
+            min-height: 300px;
+        }
+
+        .photo-method-toggle {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .photo-method {
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .photo-method.active {
+            background: var(--primary);
+            color: white;
+        }
+
         @keyframes pulse {
             0% { opacity: 0.6; }
             50% { opacity: 1; }
@@ -519,149 +662,236 @@
             <div class="tab active" data-tab="dashboard">Dashboard</div>
             <div class="tab" data-tab="attendance">Attendance</div>
             <div class="tab" data-tab="register">Register</div>
+            <div class="tab" data-tab="reports">Reports</div>
         </div>
 
-        <div class="content active" id="dashboard">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon blue">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
+        <div class="tabs-content-container">
+            <div class="content active" id="dashboard">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </div>
+                        <div class="stat-details">
+                            <h3 id="total-students">0</h3>
+                            <p>Total Students</p>
+                        </div>
                     </div>
-                    <div class="stat-details">
-                        <h3 id="total-students">0</h3>
-                        <p>Total Students</p>
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </div>
+                        <div class="stat-details">
+                            <h3 id="present-today">0</h3>
+                            <p>Present Today</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon teal">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                        </div>
+                        <div class="stat-details">
+                            <h3 id="current-date">-</h3>
+                            <p>Current Date</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon pink">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </div>
+                        <div class="stat-details">
+                            <h3 id="current-time">-</h3>
+                            <p>Current Time</p>
+                        </div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon purple">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
-                    </div>
-                    <div class="stat-details">
-                        <h3 id="present-today">0</h3>
-                        <p>Present Today</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon teal">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                            <line x1="16" y1="2" x2="16" y2="6"></line>
-                            <line x1="8" y1="2" x2="8" y2="6"></line>
-                            <line x1="3" y1="10" x2="21" y2="10"></line>
-                        </svg>
-                    </div>
-                    <div class="stat-details">
-                        <h3 id="current-date">-</h3>
-                        <p>Current Date</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon pink">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                    </div>
-                    <div class="stat-details">
-                        <h3 id="current-time">-</h3>
-                        <p>Current Time</p>
-                    </div>
-                </div>
-            </div>
 
-            <div class="card">
-                <div class="card-header">
-                    Live Attendance
-                    <div class="connection-status">
-                        <div id="connection-indicator" class="connection-indicator disconnected"></div>
-                        <span id="connection-text">Disconnected</span>
+                <div class="card">
+                    <div class="card-header">
+                        <span>Live Attendance</span>
+                        <div style="display: flex; align-items: center;">
+                            <div class="connection-status">
+                                <div id="connection-indicator" class="connection-indicator disconnected"></div>
+                                <span id="connection-text">Disconnected</span>
+                            </div>
+                            <div style="display: flex; align-items: center; margin-left: 15px;">
+                                <span>Camera:</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="camera-toggle">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="card-body">
-                    <div class="camera-container">
-                        <img id="camera-feed" alt="Camera feed" src="/video_feed">
-                    </div>
-                    <div class="recent-recognitions">
-                        <h4>Recent Recognitions</h4>
-                        <div class="recognition-log" id="recognition-log">
-                            <div class="recognition-entry">Waiting for recognition events...</div>
+                    <div class="card-body">
+                        <div class="camera-container">
+                            <img id="camera-feed" alt="Camera feed" src="/video_feed">
+                            <div id="camera-off-message" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; display: none;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#adb5bd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path>
+                                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                                </svg>
+                                <p style="margin-top: 10px; color: #6c757d;">Camera is turned off</p>
+                                <button id="start-camera" class="btn btn-primary" style="margin-top: 15px;">
+                                    Start Camera
+                                </button>
+                            </div>
+                        </div>
+                        <div class="recent-recognitions">
+                            <h4>Recent Recognitions</h4>
+                            <div class="recognition-log" id="recognition-log">
+                                <div class="recognition-entry">Waiting for recognition events...</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="content" id="attendance">
-            <div class="card">
-                <div class="card-header">
-                    Today's Attendance
-                </div>
-                <div class="card-body">
-                    <div class="attendance-list" id="attendance-list">
-                        <!-- Attendance list will be populated dynamically -->
-                        <div class="recognition-entry">No attendance records yet for today.</div>
+            <div class="content" id="attendance">
+                <div class="card">
+                    <div class="card-header">
+                        <span>Attendance Records</span>
+                        <div class="date-picker-wrapper">
+                            <label for="attendance-date">Date:</label>
+                            <input type="date" id="attendance-date" class="form-control">
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="attendance-list" id="attendance-list">
+                            <!-- Attendance list will be populated dynamically -->
+                            <div class="recognition-entry">No attendance records yet for today.</div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="content" id="register">
-            <div class="card">
-                <div class="card-header">
-                    Register New Student
-                </div>
-                <div class="card-body">
-                    <form id="registration-form" class="registration-form">
-                        <div>
-                            <div class="form-group">
-                                <label for="student-name">Student Name</label>
-                                <input type="text" id="student-name" placeholder="Enter full name" required>
+            <div class="content" id="register">
+                <div class="card">
+                    <div class="card-header">
+                        Register New Student
+                    </div>
+                    <div class="card-body">
+                        <div class="photo-method-toggle">
+                            <div class="photo-method active" data-method="upload" id="upload-method">
+                                Upload Photo
                             </div>
-                            <div class="form-group">
-                                <label for="student-id">Student ID</label>
-                                <input type="text" id="student-id" placeholder="Enter student ID" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="student-email">Email</label>
-                                <input type="email" id="student-email" placeholder="Enter email address">
+                            <div class="photo-method" data-method="capture" id="capture-method">
+                                Capture from Camera
                             </div>
                         </div>
-                        <div>
-                            <div class="form-group">
-                                <label>Student Photo</label>
-                                <div class="photo-upload" id="photo-upload">
-                                    <div class="photo-upload-icon">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
-                                            <line x1="16" y1="5" x2="22" y2="5"></line>
-                                            <line x1="19" y1="2" x2="19" y2="8"></line>
-                                            <circle cx="9" cy="9" r="2"></circle>
-                                            <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
-                                        </svg>
+                        
+                        <form id="registration-form" class="registration-form">
+                            <div>
+                                <div class="form-group">
+                                    <label for="student-name">Student Name</label>
+                                    <input type="text" id="student-name" placeholder="Enter full name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="student-id">Student ID</label>
+                                    <input type="text" id="student-id" placeholder="Enter student ID" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="student-email">Email</label>
+                                    <input type="email" id="student-email" placeholder="Enter email address">
+                                </div>
+                            </div>
+                            <div>
+                                <!-- Upload Photo Method -->
+                                <div id="upload-photo-container">
+                                    <div class="form-group">
+                                        <label>Student Photo</label>
+                                        <div class="photo-upload" id="photo-upload">
+                                            <div class="photo-upload-icon">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
+                                                    <line x1="16" y1="5" x2="22" y2="5"></line>
+                                                    <line x1="19" y1="2" x2="19" y2="8"></line>
+                                                    <circle cx="9" cy="9" r="2"></circle>
+                                                    <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                                                </svg>
+                                            </div>
+                                            <p>Click to upload photo</p>
+                                            <input type="file" id="photo-input" accept="image/*" style="display: none;">
+                                        </div>
+                                        <div class="preview-container" id="preview-container">
+                                            <img id="photo-preview" src="" alt="Photo preview">
+                                        </div>
                                     </div>
-                                    <p>Click to upload photo</p>
-                                    <input type="file" id="photo-input" accept="image/*" style="display: none;">
                                 </div>
-                                <div class="preview-container" id="preview-container">
-                                    <img id="photo-preview" src="" alt="Photo preview">
+                                
+                                <!-- Capture Photo Method -->
+                                <div id="capture-photo-container" style="display: none;">
+                                    <div class="form-group">
+                                        <label>Capture Photo</label>
+                                        <div class="camera-container" style="height: 300px;">
+                                            <img id="registration-camera-feed" alt="Camera feed" src="/registration_feed">
+                                        </div>
+                                        <div class="camera-controls">
+                                            <button type="button" class="btn btn-primary" id="capture-btn">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                    <circle cx="12" cy="12" r="3"></circle>
+                                                </svg>
+                                                Capture
+                                            </button>
+                                        </div>
+                                        <div class="preview-container" id="capture-preview-container">
+                                            <img id="capture-preview" src="" alt="Captured photo preview">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">Register Student</button>
+                                    <button type="button" class="btn btn-secondary" id="reset-form">Reset Form</button>
                                 </div>
                             </div>
-                            <div class="form-actions">
-                                <button type="submit" class="btn btn-primary">Register Student</button>
-                                <button type="button" class="btn btn-secondary" id="reset-form">Reset Form</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content" id="reports">
+                <div class="card">
+                    <div class="card-header">
+                        <span>Attendance Reports</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="report-controls">
+                            <div class="date-range">
+                                <label for="start-date">From:</label>
+                                <input type="date" id="start-date" class="form-control">
+                                
+                                <label for="end-date">To:</label>
+                                <input type="date" id="end-date" class="form-control">
+                                
+                                <button id="generate-report" class="btn btn-primary">Generate Report</button>
                             </div>
                         </div>
-                    </form>
+                        
+                        <div id="report-content">
+                            <!-- Report will be generated here -->
+                            <p>Select a date range and click "Generate Report" to see attendance statistics.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -683,6 +913,16 @@
                 // Add active class to clicked tab and corresponding content
                 tab.classList.add('active');
                 document.getElementById(target).classList.add('active');
+                
+                // Special handling for registration tab - turn off main camera if going to registration
+                if (target === 'register') {
+                    toggleMainCamera(false);
+                    if (document.querySelector('.photo-method[data-method="capture"]').classList.contains('active')) {
+                        toggleRegistrationCamera(true);
+                    }
+                } else {
+                    toggleRegistrationCamera(false);
+                }
             });
         });
 
@@ -699,12 +939,90 @@
         updateDateTime();
         setInterval(updateDateTime, 60000); // Update every minute
 
+        // Toggle main camera
+        const cameraToggle = document.getElementById('camera-toggle');
+        const cameraFeed = document.getElementById('camera-feed');
+        const cameraOffMessage = document.getElementById('camera-off-message');
+        const startCameraBtn = document.getElementById('start-camera');
+        
+        cameraToggle.addEventListener('change', function() {
+            toggleMainCamera(this.checked);
+        });
+        
+        startCameraBtn.addEventListener('click', function() {
+            cameraToggle.checked = true;
+            toggleMainCamera(true);
+        });
+        
+        function toggleMainCamera(status) {
+            fetch('/api/toggle_camera', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: status }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.camera_running) {
+                    cameraFeed.style.display = 'block';
+                    cameraOffMessage.style.display = 'none';
+                    // Make sure toggle switch reflects server state
+                    cameraToggle.checked = true;
+                } else {
+                    cameraFeed.style.display = 'none';
+                    cameraOffMessage.style.display = 'flex';
+                    cameraToggle.checked = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error toggling camera:', error);
+            });
+        }
+        
+        // Toggle registration camera
+        function toggleRegistrationCamera(status) {
+            fetch('/api/toggle_registration_camera', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: status }),
+            })
+            .then(response => response.json())
+            .catch(error => {
+                console.error('Error toggling registration camera:', error);
+            });
+        }
+
         // Photo upload and preview
         const photoUpload = document.getElementById('photo-upload');
         const photoInput = document.getElementById('photo-input');
         const photoPreview = document.getElementById('photo-preview');
         const previewContainer = document.getElementById('preview-container');
         const resetFormBtn = document.getElementById('reset-form');
+        
+        // Registration photo method switching
+        const uploadMethod = document.getElementById('upload-method');
+        const captureMethod = document.getElementById('capture-method');
+        const uploadPhotoContainer = document.getElementById('upload-photo-container');
+        const capturePhotoContainer = document.getElementById('capture-photo-container');
+        
+        uploadMethod.addEventListener('click', function() {
+            uploadMethod.classList.add('active');
+            captureMethod.classList.remove('active');
+            uploadPhotoContainer.style.display = 'block';
+            capturePhotoContainer.style.display = 'none';
+            toggleRegistrationCamera(false);
+        });
+        
+        captureMethod.addEventListener('click', function() {
+            captureMethod.classList.add('active');
+            uploadMethod.classList.remove('active');
+            capturePhotoContainer.style.display = 'block';
+            uploadPhotoContainer.style.display = 'none';
+            toggleRegistrationCamera(true);
+        });
 
         photoUpload.addEventListener('click', () => {
             photoInput.click();
@@ -720,10 +1038,32 @@
                 reader.readAsDataURL(e.target.files[0]);
             }
         });
+        
+        // Capture photo from webcam
+        const captureBtn = document.getElementById('capture-btn');
+        const capturePreview = document.getElementById('capture-preview');
+        const capturePreviewContainer = document.getElementById('capture-preview-container');
+        
+        captureBtn.addEventListener('click', function() {
+            fetch('/api/capture_registration_image')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        capturePreview.src = `data:image/jpeg;base64,${data.image}`;
+                        capturePreviewContainer.style.display = 'block';
+                    } else {
+                        alert('Failed to capture image: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error capturing image:', error);
+                });
+        });
 
         resetFormBtn.addEventListener('click', () => {
             document.getElementById('registration-form').reset();
             previewContainer.style.display = 'none';
+            capturePreviewContainer.style.display = 'none';
         });
 
         // Registration form submission
@@ -736,20 +1076,35 @@
             const id = document.getElementById('student-id').value;
             const email = document.getElementById('student-email').value;
             
-            if (!photoPreview.src) {
-                alert('Please upload a photo of the student');
-                return;
-            }
-            
             // Create form data to send to backend
             const formData = new FormData();
-            formData.append('name', name);
-            formData.append('id', id);
-            formData.append('email', email);
+            formData.append('name', `${name}-${id}`); // Include ID in the name for uniqueness
             
-            // Get the file from the input
-            const fileInput = document.getElementById('photo-input');
-            if (fileInput.files.length > 0) {
+            // Check which photo method was used
+            const isCapture = document.querySelector('.photo-method[data-method="capture"]').classList.contains('active');
+            
+            if (isCapture) {
+                // Using webcam capture
+                if (!capturePreview.src || capturePreview.src === '') {
+                    alert('Please capture a photo first');
+                    return;
+                }
+                
+                // Convert data URL to base64 string
+                let base64String = capturePreview.src;
+                if (base64String.includes('base64,')) {
+                    base64String = base64String.split('base64,')[1];
+                }
+                
+                formData.append('captured_photo', base64String);
+            } else {
+                // Using file upload
+                const fileInput = document.getElementById('photo-input');
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    alert('Please upload a photo of the student');
+                    return;
+                }
+                
                 formData.append('photo', fileInput.files[0]);
             }
             
@@ -766,6 +1121,7 @@
                    alert('Student registered successfully!');
                    registrationForm.reset();
                    previewContainer.style.display = 'none';
+                   capturePreviewContainer.style.display = 'none';
                    updateStats(); // Update the stats after successful registration
                 } else {
                    alert('Registration failed: ' + result.message);
@@ -834,7 +1190,10 @@
         // Function to fetch and update attendance data
         async function fetchAttendanceData() {
             try {
-                const response = await fetch('/api/attendance');
+                const dateInput = document.getElementById('attendance-date');
+                const date = dateInput.value || new Date().toISOString().split('T')[0];
+                
+                const response = await fetch(`/api/attendance?date=${date}`);
                 const attendanceData = await response.json();
                 
                 const attendanceList = document.getElementById('attendance-list');
@@ -843,7 +1202,7 @@
                 attendanceList.innerHTML = '';
                 
                 if (attendanceData.length === 0) {
-                    attendanceList.innerHTML = '<div class="recognition-entry">No attendance records yet for today.</div>';
+                    attendanceList.innerHTML = '<div class="recognition-entry">No attendance records for the selected date.</div>';
                     return;
                 }
                 
@@ -852,14 +1211,15 @@
                     const item = document.createElement('div');
                     item.className = 'attendance-item';
                     
-                    const initials = student.name.split(' ').map(n => n[0]).join('');
+                    const name = student.name.split('-')[0]; // Strip ID if included in name
+                    const initials = name.split(' ').map(n => n[0]).join('');
                     
                     item.innerHTML = `
                         <div class="attendance-avatar">
                             ${initials}
                         </div>
                         <div class="attendance-details">
-                            <div class="attendance-name">${student.name}</div>
+                            <div class="attendance-name">${name}</div>
                             <div class="attendance-time">${student.time}</div>
                         </div>
                         <div class="attendance-status">${student.status}</div>
@@ -869,6 +1229,131 @@
                 });
             } catch (error) {
                 console.error('Error fetching attendance data:', error);
+            }
+        }
+        
+        // Setup attendance date picker
+        const attendanceDatePicker = document.getElementById('attendance-date');
+        attendanceDatePicker.valueAsDate = new Date();
+        attendanceDatePicker.addEventListener('change', fetchAttendanceData);
+        
+        // Reports functionality
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
+        const generateReportBtn = document.getElementById('generate-report');
+        const reportContent = document.getElementById('report-content');
+        
+        // Set default date range (last 7 days)
+        const today = new Date();
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(today.getDate() - 7);
+        
+        startDateInput.valueAsDate = oneWeekAgo;
+        endDateInput.valueAsDate = today;
+        
+        generateReportBtn.addEventListener('click', function() {
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            
+            if (!startDate || !endDate) {
+                alert('Please select start and end dates');
+                return;
+            }
+            
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('Start date must be before end date');
+                return;
+            }
+            
+            fetchAttendanceReport(startDate, endDate);
+        });
+        
+        async function fetchAttendanceReport(startDate, endDate) {
+            try {
+                const response = await fetch(`/api/report?start_date=${startDate}&end_date=${endDate}`);
+                const reportData = await response.json();
+                
+                if (reportData.length === 0) {
+                    reportContent.innerHTML = '<p>No attendance data found for the selected date range.</p>';
+                    return;
+                }
+                
+                // Create a date range array for the table headers
+                const dates = [];
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                const dateOptions = { month: 'short', day: 'numeric' };
+                
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                    dates.push(d.toISOString().split('T')[0]);
+                }
+                
+                // Generate the report table
+                let tableHTML = `
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                `;
+                
+                // Add date columns
+                dates.forEach(date => {
+                    const displayDate = new Date(date).toLocaleDateString('en-US', dateOptions);
+                    tableHTML += `<th>${displayDate}</th>`;
+                });
+                
+                tableHTML += `
+                                <th>Attendance %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                // Add student rows
+                reportData.forEach(student => {
+                    const studentName = student.name.split('-')[0]; // Strip ID if included
+                    
+                    // Determine percentage class
+                    let percentageClass = '';
+                    if (student.percentage >= 80) {
+                        percentageClass = 'high';
+                    } else if (student.percentage >= 60) {
+                        percentageClass = 'medium';
+                    } else {
+                        percentageClass = 'low';
+                    }
+                    
+                    tableHTML += `
+                        <tr>
+                            <td>${studentName}</td>
+                    `;
+                    
+                    // Add status for each date
+                    dates.forEach(date => {
+                        const status = student.dates[date] || 'Absent';
+                        const statusIcon = status === 'Present' ? 
+                            '<span style="color: #16a34a;">✓</span>' : 
+                            '<span style="color: #dc2626;">✗</span>';
+                        tableHTML += `<td>${statusIcon}</td>`;
+                    });
+                    
+                    // Add attendance percentage
+                    tableHTML += `
+                            <td><span class="attendance-percentage ${percentageClass}">${student.percentage}%</span></td>
+                        </tr>
+                    `;
+                });
+                
+                tableHTML += `
+                        </tbody>
+                    </table>
+                `;
+                
+                reportContent.innerHTML = tableHTML;
+                
+            } catch (error) {
+                console.error('Error fetching report data:', error);
+                reportContent.innerHTML = '<p>Error generating report. Please try again.</p>';
             }
         }
         
@@ -910,6 +1395,12 @@
         // Initialize everything when page loads
         document.addEventListener('DOMContentLoaded', () => {
             checkConnection();
+            
+            // Check camera state
+            toggleMainCamera(false);
+            cameraToggle.checked = false;
+            cameraFeed.style.display = 'none';
+            cameraOffMessage.style.display = 'flex';
             
             // Set up periodic updates
             setInterval(updateStats, 10000); // Every 10 seconds
